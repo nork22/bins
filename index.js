@@ -1,51 +1,37 @@
-const express = require('express')
-const app = express()
-const { Sequelize, DataTypes } = require('sequelize')
-const cliente = require('./models/cliente')
+'use strict'
 
-const sequelize = new Sequelize({ 
-  dialect: 'sqlite', 
-  storage: './dados.db' 
-})  
+const fs = require('fs')
+const path = require('path')
+const Sequelize = require('sequelize')
+const basename = path.basename(__filename)
+const env = process.env.NODE_ENV || 'development'
+const config = require(__dirname + '/../config/config.json')[env]
+const db = {}
 
-const clientes = cliente(sequelize, DataTypes)
+let sequelize
+if (config.use_env_variable) {
+  sequelize = new Sequelize(process.env[config.use_env_variable], config)
+} else {
+  sequelize = new Sequelize(config.database, config.username, config.password, config)
+}
 
-// We need to parse JSON coming from requests
-app.use(express.json())
+fs
+  .readdirSync(__dirname)
+  .filter(file => {
+    return (file.indexOf('.') !== 0) && (file !== basename) && (file.slice(-3) === '.js')
+  })
+  .forEach(file => {
+    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes)
+    db[model.name] = model
+  })
 
-// List clientes
-app.get('/clientes', (req, res) => { 
-  res.json({ action: 'Listing clientes' })
+Object.keys(db).forEach(modelName => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db)
+  }
 })
 
-// Create cliente
-app.post('/clientes', (req, res) => {
-  const body = req.body
+db.sequelize = sequelize
+db.Sequelize = Sequelize
 
-  res.json(body)
-})
-
-// Show cliente
-app.get('/clientes/:id', (req, res) => {
-  const clienteId = req.params.id
-
-  res.send({ action: 'Showing cliente', clienteId: clienteId })
-})
-
-// Update cliente
-app.put('/clientes/:id', (req, res) => {
-  const clienteId = req.params.id
-
-  res.send({ action: 'Updating cliente', clienteId: clienteId })
-})
-
-// Delete cliente
-app.delete('/clientes/:id', (req, res) => {
-  const clienteId = req.params.id
-
-  res.send({ action: 'Deleting cliente', clienteId: clienteId })
-})
-
-app.listen(8080, () => {
-  console.log('Iniciando o ExpressJS na porta 8080')
-})
+module.exports = db
